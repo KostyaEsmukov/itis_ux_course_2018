@@ -128,6 +128,12 @@ class Traverser:
             f'{cmd[4:]}: {getattr(self, cmd).__doc__}' for cmd in commands
         ))
 
+    def cmd_exit(self, args):
+        """Exit the program. Doesn't accept any arg."""
+        if args:
+            raise ValueError("exit doesn't accept any argument")
+        raise StopIteration()
+
 
 def respond(t):
     sys.stdout.write('%s\n' % t)
@@ -140,22 +146,26 @@ def main():
     while True:
         sys.stdout.write('> ')
         sys.stdout.flush()
-        command = next(sys.stdin).strip()
-        if command == 'q':
+        try:
+            command = next(sys.stdin).strip()
+        except (StopIteration, KeyboardInterrupt):
             respond('exiting')
             break
+
+        args = command.split(' ')
+        cmd = args[0]
+        args = args[1:]
+        attr_name = 'cmd_%s' % cmd
+        if hasattr(t, attr_name):
+            try:
+                getattr(t, attr_name)(args)
+            except ValueError as e:
+                respond('Command invocation error: %s' % e)
+            except StopIteration:
+                respond('exiting')
+                break
         else:
-            args = command.split(' ')
-            cmd = args[0]
-            args = args[1:]
-            attr_name = 'cmd_%s' % cmd
-            if hasattr(t, attr_name):
-                try:
-                    getattr(t, attr_name)(args)
-                except ValueError as e:
-                    respond('Command invocation error: %s' % e)
-            else:
-                respond('Command not found. List known commands: help')
+            respond('Command not found. List known commands: help')
 
 
 if __name__ == '__main__':
