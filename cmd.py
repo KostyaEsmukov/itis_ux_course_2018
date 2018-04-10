@@ -30,10 +30,12 @@ class Traverser:
         result = []
         for path in args:
             path = os.path.realpath(path)
-            root, dirs, files = next(os.walk(path))
-            # TODO !!! handle empty dir
-            result.append(f'Listing directory: {path}\n' +
-                          format_listing(files, dirs))
+            for root, dirs, files in os.walk(path):
+                output = format_listing(files, dirs)
+                break
+            else:
+                output = 'Not an existing dir'
+            result.append(f'Listing directory: {path}\n' + output)
 
         respond('\n\n'.join(result))
 
@@ -108,9 +110,11 @@ class Traverser:
         respond('Moving marked paths to: %s' % self.cd)
         for path in sorted(set(self.marked)):
             try:
-                target = os.path.basename(path.rstrip('/'))
-                os.rename(path, os.path.join(self.cd, target))
-                # TODO don't overwrite !!!!!!!!!!!!!
+                target_name = os.path.basename(path.rstrip('/'))
+                target_path = os.path.join(self.cd, target_name)
+                if os.path.exists(target_path):
+                    raise OSError('File exists')
+                os.rename(path, target_path)
                 self.marked.discard(path)
             except OSError as e:
                 respond('Unable to move path: %s: %s' % (path, e))
