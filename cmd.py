@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import shlex
 import sys
 import os
 
@@ -152,7 +153,7 @@ def main():
             respond('exiting')
             break
 
-        args = command.split(' ')
+        args = shlex.split(command)
         cmd = args[0]
         args = args[1:]
         attr_name = 'cmd_%s' % cmd
