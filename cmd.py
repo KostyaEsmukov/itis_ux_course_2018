@@ -198,14 +198,20 @@ class MenuMode(BaseMode):
     name_verbose = 'menu'
 
     def print_prompt(self):
-        respond('❤️  ', newline=False)
+        respond('❤️  ', clear_screen=True)
 
     def process_input(self, line):
         respond('noop')
 
 
-def respond(t, newline=True):
+def respond(t, newline=True, clear_screen=False):
+    # https://stackoverflow.com/questions/517970/how-to-clear-the-interpreter-console?noredirect=1&lq=1#comment15050841_517992
+    clear_seq = "\x1B[H\x1B[J"
+
     tmpl = '%s\n' if newline else '%s'
+    if clear_screen:
+        tmpl = clear_seq + tmpl
+
     sys.stdout.write(tmpl % t)
     sys.stdout.flush()
 
