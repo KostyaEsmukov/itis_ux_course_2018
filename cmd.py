@@ -136,37 +136,48 @@ class Traverser:
         raise StopIteration()
 
 
+class CommandlineMode:
+    def __init__(self):
+        self.traverser = Traverser()
+        self.accepts_input = True
+        respond('Type "help" to list known commands.')
+
+    def process_input(self, line):
+        args = shlex.split(line)
+        cmd = args[0]
+        args = args[1:]
+        attr_name = 'cmd_%s' % cmd
+        if hasattr(self.traverser, attr_name):
+            try:
+                getattr(self.traverser, attr_name)(args)
+            except ValueError as e:
+                respond('Command invocation error: %s' % e)
+            except StopIteration:
+                self.close_input()
+        else:
+            respond('Command not found. List known commands: help')
+
+    def close_input(self):
+        respond('exiting')
+        self.accepts_input = False
+
+
 def respond(t):
     sys.stdout.write('%s\n' % t)
     sys.stdout.flush()
 
 
 def main():
-    t = Traverser()
-    respond('Type "help" to list known commands.')
-    while True:
+    m = CommandlineMode()
+    while m.accepts_input:
         sys.stdout.write('> ')
         sys.stdout.flush()
         try:
-            command = next(sys.stdin).strip()
+            line = next(sys.stdin).strip()
         except (StopIteration, KeyboardInterrupt):
-            respond('exiting')
-            break
-
-        args = shlex.split(command)
-        cmd = args[0]
-        args = args[1:]
-        attr_name = 'cmd_%s' % cmd
-        if hasattr(t, attr_name):
-            try:
-                getattr(t, attr_name)(args)
-            except ValueError as e:
-                respond('Command invocation error: %s' % e)
-            except StopIteration:
-                respond('exiting')
-                break
+            m.close_input()
         else:
-            respond('Command not found. List known commands: help')
+            m.process_input(line)
 
 
 if __name__ == '__main__':
