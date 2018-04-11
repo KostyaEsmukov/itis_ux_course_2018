@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+import argparse
 import shlex
 import sys
 import os
+from abc import ABCMeta, abstractmethod
 
 
 def format_listing(files, dirs):
@@ -136,10 +138,29 @@ class Traverser:
         raise StopIteration()
 
 
-class CommandlineMode:
+class BaseMode(metaclass=ABCMeta):
+    name_short = None
+    name_verbose = None
+
     def __init__(self):
         self.traverser = Traverser()
         self.accepts_input = True
+
+    @abstractmethod
+    def process_input(self, line):
+        pass
+
+    def close_input(self):
+        respond('exiting')
+        self.accepts_input = False
+
+
+class CommandlineMode(BaseMode):
+    name_short = 'c'
+    name_verbose = 'commandline'
+
+    def __init__(self):
+        super().__init__()
         respond('Type "help" to list known commands.')
 
     def process_input(self, line):
@@ -157,9 +178,13 @@ class CommandlineMode:
         else:
             respond('Command not found. List known commands: help')
 
-    def close_input(self):
-        respond('exiting')
-        self.accepts_input = False
+
+class MenuMode(BaseMode):
+    name_short = 'm'
+    name_verbose = 'menu'
+
+    def process_input(self, line):
+        respond('noop')
 
 
 def respond(t):
@@ -168,7 +193,17 @@ def respond(t):
 
 
 def main():
-    m = CommandlineMode()
+    modes = [CommandlineMode, MenuMode]
+
+    parser = argparse.ArgumentParser(description='A shell to bulk move files.')
+    parser.add_argument('mode', type=str, choices=[m.name_short for m in modes],
+                        nargs='?', default=CommandlineMode.name_short,
+                        help='Mode. %s.' % '. '.join(
+                           f'{m.name_short} - {m.name_verbose}' for m in modes))
+    args = parser.parse_args()
+
+    m = next((m for m in modes if m.name_short == args.mode),
+             CommandlineMode)()
     while m.accepts_input:
         sys.stdout.write('> ')
         sys.stdout.flush()
