@@ -124,13 +124,6 @@ class Traverser:
             else:
                 respond('Moved path: %s' % path)
 
-    def cmd_help(self, args):
-        commands = [cmd for cmd in dir(self)
-                    if cmd.startswith('cmd_') and cmd != 'cmd_help']
-        respond('Known commands:\n%s' % '\n'.join(
-            f'{cmd[4:]}: {getattr(self, cmd).__doc__}' for cmd in commands
-        ))
-
     def cmd_exit(self, args):
         """Exit the program. Doesn't accept any arg."""
         if args:
@@ -138,13 +131,27 @@ class Traverser:
         raise StopIteration()
 
 
+class CommandlineTraverser(Traverser):
+    def cmd_help(self, args):
+        commands = [cmd for cmd in dir(self)
+                    if cmd.startswith('cmd_') and cmd != 'cmd_help']
+        respond('Known commands:\n%s' % '\n'.join(
+            f'{cmd[4:]}: {getattr(self, cmd).__doc__}' for cmd in commands
+        ))
+
+
 class BaseMode(metaclass=ABCMeta):
     name_short = None
     name_verbose = None
+    traverser_cls = Traverser
 
     def __init__(self):
-        self.traverser = Traverser()
+        self.traverser = self.traverser_cls()
         self.accepts_input = True
+
+    @abstractmethod
+    def print_prompt(self):
+        pass
 
     @abstractmethod
     def process_input(self, line):
@@ -158,13 +165,20 @@ class BaseMode(metaclass=ABCMeta):
 class CommandlineMode(BaseMode):
     name_short = 'c'
     name_verbose = 'commandline'
+    traverser_cls = CommandlineTraverser
 
     def __init__(self):
         super().__init__()
         respond('Type "help" to list known commands.')
 
+    def print_prompt(self):
+        respond('> ', newline=False)
+
     def process_input(self, line):
         args = shlex.split(line)
+        if not args:
+            return
+
         cmd = args[0]
         args = args[1:]
         attr_name = 'cmd_%s' % cmd
@@ -183,12 +197,16 @@ class MenuMode(BaseMode):
     name_short = 'm'
     name_verbose = 'menu'
 
+    def print_prompt(self):
+        respond('❤️  ', newline=False)
+
     def process_input(self, line):
         respond('noop')
 
 
-def respond(t):
-    sys.stdout.write('%s\n' % t)
+def respond(t, newline=True):
+    tmpl = '%s\n' if newline else '%s'
+    sys.stdout.write(tmpl % t)
     sys.stdout.flush()
 
 
@@ -205,8 +223,7 @@ def main():
     m = next((m for m in modes if m.name_short == args.mode),
              CommandlineMode)()
     while m.accepts_input:
-        sys.stdout.write('> ')
-        sys.stdout.flush()
+        m.print_prompt()
         try:
             line = next(sys.stdin).strip()
         except (StopIteration, KeyboardInterrupt):
