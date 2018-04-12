@@ -38,6 +38,7 @@ class MenuResponse(metaclass=ABCMeta):
 
 class MenuAlert(MenuResponse):
     def __init__(self, message):
+        super().__init__()
         self.message = message
 
     def __str__(self):
@@ -451,17 +452,27 @@ class MovemarkedCommand(Command, MenuCommand, CommandlineCommand):
     name = 'mvmark'
 
     def _commandline_run(self, args):
+        if not self.mover_state.marked:
+            respond('Nothing to move: no paths marked')
         for line in self._move():
             respond(line)
 
     def _menu_run(self):
+        if not self.mover_state.marked:
+            yield MenuAlert('Nothing to move: no paths marked')
+            return
+        marked = ShowmarkCommand.list_marked(self.mover_state.marked)
+        assert marked
+        confirmation = MenuConfirm(
+            'Are you sure you want to move the following paths to \'%s\'?\n\n%s' %
+            (self.mover_state.cd, '\n'.join('* %s' % p for p in marked)))
+        yield confirmation
+        if not confirmation.is_confirmed:
+            return
         text = '\n'.join(self._move())
         yield MenuAlert(text)
 
     def _move(self):
-        if not self.mover_state.marked:
-            yield 'Nothing to move: no paths marked'
-            return
         yield 'Moving marked paths to: %s' % self.mover_state.cd
         for path in sorted(set(self.mover_state.marked)):
             try:
@@ -591,8 +602,7 @@ class MenuMode(BaseMode):
         marked = ShowmarkCommand.list_marked(self.mover_state.marked)
         if marked:
             title.append('Marked paths:')
-            for p in marked:
-                title.append('* %s' % p)
+            title.extend('* %s' % p for p in marked)
         self.current_menu = MenuListing(title,
                                         ((c.__doc__, c) for c in commands_registry
                                          if c.__doc__ and issubclass(c, MenuCommand)),
